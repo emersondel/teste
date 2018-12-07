@@ -1,4 +1,8 @@
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 import os.path
 import openpyxl
 from openpyxl import load_workbook
@@ -21,6 +25,8 @@ def openChrome():
     # abre o Chrome para realizar os testes
     browser = webdriver.Chrome(chrome_driver_path, chrome_options=chrome_options)
     #browser = webdriver.Chrome()
+
+    #browser.set_window_size(2000, 2000)
 
 def pesquisaNomeExame(nome_exame):
     global sheet
@@ -45,16 +51,16 @@ def insereDadosXLS(nome_exame, prazo, outros_nomes):
     sheet.cell(ultima_linha, 7).value = date.today()
 
     #salva a planilha
-    book.save('C:\Projetos\Tabela_Exames.xlsx')
+    book.save('C:\Projetos\Dasa\Tabela_Exames.xlsx')
 
 def checaPlanilha():
     global book
     global sheet
     global wb
     #verifica se a planilha existe na pasta
-    if os.path.exists('C:\Projetos\Tabela_Exames.xlsx'):
+    if os.path.exists('C:\Projetos\Dasa\Tabela_Exames.xlsx'):
         #abre a planilha
-        book = load_workbook("C:\Projetos\Tabela_Exames.xlsx")
+        book = load_workbook("C:\Projetos\Dasa\Tabela_Exames.xlsx")
         sheet = book.get_sheet_by_name("Fleury")
         #book.sheet_state = 'visible'
     else:
@@ -75,10 +81,10 @@ def checaPlanilha():
             sheet.cell(1, i+1).value = titles[i]
 
         # Salva a planilha
-        book.save('C:\Projetos\Tabela_Exames.xlsx')
+        book.save('C:\Projetos\Dasa\Tabela_Exames.xlsx')
 
         # abre a planilha
-        book = load_workbook("C:\Projetos\Tabela_Exames.xlsx")
+        book = load_workbook("C:\Projetos\Dasa\Tabela_Exames.xlsx")
         sheet = book.get_sheet_by_name("Fleury")
 
 def coletaDadosExame():
@@ -90,21 +96,25 @@ def coletaDadosExame():
     for i in range(len(tipos)):
         # Navega para a pagina dos exames
         browser.get('http://www.fleury.com.br/exames-e-servicos/medicina-diagnostica/exames-oferecidos/Pages/default.aspx?src_a=0&src_d=10000&BUSCA=' + tipos[i] + '&Tipo=0')
-        time.sleep(2)
+        element = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "lista-exames")))
+
+        #diminui o zoom da pagina
+        #browser.execute_script("document.body.style.zoom='75%'")
 
         #coleta o total de exames exibidos na tela
         for y in range(len(browser.find_elements_by_tag_name("article"))):
             #coleta o nome do exame
             nome_exame = browser.find_elements_by_tag_name("article")[y].text.split("\n")[0]
-
+            time.sleep(1)
             #verifica se o exame já foi pesquisado
             if pesquisaNomeExame(nome_exame) == False:
                 #clica no exame para coletar os dados necessários
-                browser.find_elements_by_tag_name("article")[y].click()
-                browser.find_elements_by_tag_name("article")[y].find_elements_by_tag_name("a")[2].click()
-                time.sleep(2)
+                #browser.find_elements_by_tag_name("article")[y].find_element_by_xpath("//*[@title='Orientações']").click()
+                #browser.find_elements_by_xpath("//*[@title='Orientações']")[y].click();
+                browser.find_elements_by_xpath("//*[@title='Orientações']")[y].send_keys(Keys.ENTER)
+                time.sleep(5)
 
-                #seta para o frame
+                # seta para o frame
                 browser.switch_to_frame("Iframe1")
 
                 #coleta o prazo
@@ -116,11 +126,14 @@ def coletaDadosExame():
                 #insere as informações na planilha
                 insereDadosXLS(nome_exame, prazo, outros_nomes)
 
+                #tira um print da tela
+                browser.get_screenshot_as_file("C:\Projetos\Dasa\Prints_exames\Fleury_" + nome_exame + ".png")
+
                 # Navega para a pagina dos exames
                 browser.get(
                     'http://www.fleury.com.br/exames-e-servicos/medicina-diagnostica/exames-oferecidos/Pages/default.aspx?src_a=0&src_d=10000&BUSCA=' +
                     tipos[i] + '&Tipo=0')
-                time.sleep(2)
+                element = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.TAG_NAME, "article")))
 
 
 #Verifica a planilha
@@ -131,8 +144,6 @@ openChrome()
 
 #pesquisa pelos exames no site
 coletaDadosExame()
-
-
 
 # encerra o browser
 browser.quit()
